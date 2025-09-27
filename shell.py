@@ -2,18 +2,33 @@ import os
 import sys
 import readline
 import re
+import argparse
 
 class Shell:
-    def __init__(self):
+    def __init__(self, vfs_path=None, startup_script=None):
         self.username = os.getlogin()
         self.hostname = os.uname().nodename
         self.current_dir = os.getcwd()
         self.home_dir = os.path.expanduser("~")
+        
+        # Конфигурация
+        self.vfs_path = vfs_path
+        self.startup_script = startup_script
+        self.config = {
+            'vfs_path': vfs_path,
+            'startup_script': startup_script,
+            'username': self.username,
+            'hostname': self.hostname,
+            'current_dir': self.current_dir,
+            'home_dir': self.home_dir
+        }
+        
         self.update_prompt()
         self.commands = {
             'ls': self.ls_command,
             'cd': self.cd_command,
             'echo': self.echo_command,
+            'conf-dump': self.conf_dump_command,
             'exit': self.exit_command
         }
     
@@ -31,10 +46,14 @@ class Shell:
     def run(self):
         """Основной цикл REPL"""
         print("Добро пожаловать в эмулятор командной строки!")
-        print("Доступные команды: ls, cd, echo, exit")
+        print("Доступные команды: ls, cd, echo, conf-dump, exit")
         print("Поддерживаются переменные окружения: $VAR, ${VAR}")
         print("Для выхода используйте команду 'exit' или Ctrl+C")
         print("-" * 50)
+        
+        # Выполнение стартового скрипта, если указан
+        if self.startup_script:
+            self.execute_startup_script()
         
         while True:
             try:
@@ -45,6 +64,37 @@ class Shell:
                 break
             except Exception as e:
                 print(f"Ошибка: {e}")
+    
+    def execute_startup_script(self):
+        """Выполняет стартовый скрипт"""
+        if not os.path.exists(self.startup_script):
+            print(f"Ошибка: стартовый скрипт не найден: {self.startup_script}")
+            return
+        
+        print(f"Выполнение стартового скрипта: {self.startup_script}")
+        print("-" * 50)
+        
+        try:
+            with open(self.startup_script, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            for line_num, line in enumerate(lines, 1):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue  # Пропускаем пустые строки и комментарии
+                
+                print(f"{self.prompt}{line}")
+                try:
+                    self.execute(line)
+                except Exception as e:
+                    print(f"Ошибка в строке {line_num}: {e}")
+                    continue  # Пропускаем ошибочные строки
+            
+            print("-" * 50)
+            print("Стартовый скрипт выполнен")
+            
+        except Exception as e:
+            print(f"Ошибка чтения стартового скрипта: {e}")
 
     def execute(self, command):
         """Выполняет команду"""
@@ -139,6 +189,16 @@ class Shell:
             # echo без аргументов выводит пустую строку
             print()
 
+    def conf_dump_command(self, args):
+        """Команда conf-dump - выводит конфигурацию эмулятора"""
+        print("Конфигурация эмулятора:")
+        print("=" * 30)
+        for key, value in self.config.items():
+            if value is None:
+                value = "не задано"
+            print(f"{key}: {value}")
+        print("=" * 30)
+
     def exit_command(self, args):
         """Команда exit - завершение работы эмулятора"""
         if args:
@@ -153,6 +213,53 @@ class Shell:
             print("Exiting shell")
             sys.exit(0)
 
+def parse_arguments():
+    """Парсит аргументы командной строки"""
+    parser = argparse.ArgumentParser(
+        description='Эмулятор командной строки UNIX-подобной ОС',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Примеры использования:
+  python3 shell.py                                    # Интерактивный режим
+  python3 shell.py --vfs-path /path/to/vfs.xml       # С VFS
+  python3 shell.py --startup-script script.txt       # Со стартовым скриптом
+  python3 shell.py --vfs-path vfs.xml --startup-script script.txt  # Оба параметра
+        """
+    )
+    
+    parser.add_argument(
+        '--vfs-path',
+        type=str,
+        help='Путь к физическому расположению VFS (XML файл)'
+    )
+    
+    parser.add_argument(
+        '--startup-script',
+        type=str,
+        help='Путь к стартовому скрипту для выполнения команд эмулятора'
+    )
+    
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Включить отладочный вывод параметров при запуске'
+    )
+    
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    shell = Shell()
+    args = parse_arguments()
+    
+    # Отладочный вывод параметров
+    if args.debug:
+        print("Отладочный вывод параметров эмулятора:")
+        print("=" * 40)
+        print(f"vfs_path: {args.vfs_path}")
+        print(f"startup_script: {args.startup_script}")
+        print(f"debug: {args.debug}")
+        print("=" * 40)
+        print()
+    
+    # Создание и запуск эмулятора
+    shell = Shell(vfs_path=args.vfs_path, startup_script=args.startup_script)
     shell.run()

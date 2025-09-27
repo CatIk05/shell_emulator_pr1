@@ -1,0 +1,30 @@
+# Тестовые файлы - не коммитим в репозиторий
+test_*.py
+test_*.sh
+test_*.txt
+demo_*.py
+
+# Временные файлы
+*.tmp
+*.log
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
