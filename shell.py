@@ -212,6 +212,8 @@ class Shell:
             'pwd': self.pwd_command,
             'date': self.date_command,
             'whoami': self.whoami_command,
+            'mkdir': self.mkdir_command,
+            'cp': self.cp_command,
             'conf-dump': self.conf_dump_command,
             'exit': self.exit_command
         }
@@ -237,9 +239,9 @@ class Shell:
         """Основной цикл REPL"""
         print("Добро пожаловать в эмулятор командной строки!")
         if self.vfs_path:
-            print("Доступные команды: ls, cd, echo, cat, pwd, date, whoami, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, cat, pwd, date, whoami, mkdir, cp, conf-dump, exit")
         else:
-            print("Доступные команды: ls, cd, echo, date, whoami, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, date, whoami, mkdir, cp, conf-dump, exit")
         print("Поддерживаются переменные окружения: $VAR, ${VAR}")
         print("Для выхода используйте команду 'exit' или Ctrl+C")
         print("-" * 50)
@@ -564,6 +566,77 @@ class Shell:
                 value = "не задано"
             print(f"{key}: {value}")
         print("=" * 30)
+
+    def mkdir_command(self, args):
+        """Команда mkdir - создание директории"""
+        if not args:
+            print("mkdir: missing operand")
+            print("Usage: mkdir directory...")
+            return
+        
+        if self.vfs_path:
+            # Режим VFS
+            for dir_path in args:
+                # Нормализуем путь
+                if not dir_path.startswith("/"):
+                    if self.vfs_current_path == "/":
+                        full_path = "/" + dir_path
+                    else:
+                        full_path = self.vfs_current_path + "/" + dir_path
+                else:
+                    full_path = dir_path
+                
+                if self.vfs.create_directory(full_path):
+                    print(f"mkdir: created directory '{dir_path}'")
+                else:
+                    print(f"mkdir: cannot create directory '{dir_path}': File exists or parent directory does not exist")
+        else:
+            # Обычный режим - заглушка
+            for dir_path in args:
+                print(f"mkdir: would create directory: {dir_path}")
+
+    def cp_command(self, args):
+        """Команда cp - копирование файлов"""
+        if len(args) < 2:
+            print("cp: missing file operand")
+            print("Usage: cp source_file target_file")
+            return
+        
+        if len(args) > 2:
+            print("cp: too many arguments")
+            print("Usage: cp source_file target_file")
+            return
+        
+        src_path = args[0]
+        dst_path = args[1]
+        
+        if self.vfs_path:
+            # Режим VFS
+            # Нормализуем исходный путь
+            if not src_path.startswith("/"):
+                if self.vfs_current_path == "/":
+                    full_src_path = "/" + src_path
+                else:
+                    full_src_path = self.vfs_current_path + "/" + src_path
+            else:
+                full_src_path = src_path
+            
+            # Нормализуем целевой путь
+            if not dst_path.startswith("/"):
+                if self.vfs_current_path == "/":
+                    full_dst_path = "/" + dst_path
+                else:
+                    full_dst_path = self.vfs_current_path + "/" + dst_path
+            else:
+                full_dst_path = dst_path
+            
+            if self.vfs.copy_file(full_src_path, full_dst_path):
+                print(f"cp: copied '{src_path}' to '{dst_path}'")
+            else:
+                print(f"cp: cannot copy '{src_path}' to '{dst_path}': Source file does not exist or target already exists")
+        else:
+            # Обычный режим - заглушка
+            print(f"cp: would copy '{src_path}' to '{dst_path}'")
 
     def exit_command(self, args):
         """Команда exit - завершение работы эмулятора"""
