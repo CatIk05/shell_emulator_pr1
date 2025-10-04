@@ -6,6 +6,7 @@ import argparse
 import xml.etree.ElementTree as ET
 import base64
 from pathlib import Path
+from datetime import datetime
 
 class VFS:
     """Виртуальная файловая система"""
@@ -209,6 +210,8 @@ class Shell:
             'echo': self.echo_command,
             'cat': self.cat_command,
             'pwd': self.pwd_command,
+            'date': self.date_command,
+            'whoami': self.whoami_command,
             'conf-dump': self.conf_dump_command,
             'exit': self.exit_command
         }
@@ -234,9 +237,9 @@ class Shell:
         """Основной цикл REPL"""
         print("Добро пожаловать в эмулятор командной строки!")
         if self.vfs_path:
-            print("Доступные команды: ls, cd, echo, cat, pwd, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, cat, pwd, date, whoami, conf-dump, exit")
         else:
-            print("Доступные команды: ls, cd, echo, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, date, whoami, conf-dump, exit")
         print("Поддерживаются переменные окружения: $VAR, ${VAR}")
         print("Для выхода используйте команду 'exit' или Ctrl+C")
         print("-" * 50)
@@ -378,12 +381,31 @@ class Shell:
                 else:
                     print(item["name"])
         else:
-            # Обычный режим - заглушка
-            print(f"ls: command called with arguments: {args}")
+            # Обычный режим - реальная логика
             if args:
-                print(f"ls: would list contents of: {args}")
+                target_path = args[0]
             else:
-                print("ls: would list contents of current directory")
+                target_path = self.current_dir
+            
+            try:
+                if os.path.exists(target_path):
+                    if os.path.isdir(target_path):
+                        items = os.listdir(target_path)
+                        if items:
+                            for item in sorted(items):
+                                item_path = os.path.join(target_path, item)
+                                if os.path.isdir(item_path):
+                                    print(f"{item}/")
+                                else:
+                                    print(item)
+                    else:
+                        print(f"ls: {target_path}: Not a directory")
+                else:
+                    print(f"ls: {target_path}: No such file or directory")
+            except PermissionError:
+                print(f"ls: {target_path}: Permission denied")
+            except Exception as e:
+                print(f"ls: {target_path}: {e}")
 
     def cd_command(self, args):
         """Команда cd - смена директории"""
@@ -428,13 +450,37 @@ class Shell:
             
             self.update_prompt()
         else:
-            # Обычный режим - заглушка
+            # Обычный режим - реальная логика
             if len(args) == 0:
-                print(f"cd: would change to home directory: {self.home_dir}")
-                return
+                # cd без аргументов - переход в домашнюю директорию
+                try:
+                    os.chdir(self.home_dir)
+                    self.current_dir = os.getcwd()
+                    self.update_prompt()
+                except Exception as e:
+                    print(f"cd: {self.home_dir}: {e}")
             elif len(args) == 1:
                 target_dir = args[0]
-                print(f"cd: would change to directory: {target_dir}")
+                try:
+                    # Обработка относительных путей
+                    if target_dir.startswith("/"):
+                        new_path = target_dir
+                    else:
+                        new_path = os.path.join(self.current_dir, target_dir)
+                    
+                    # Нормализация пути
+                    new_path = os.path.abspath(new_path)
+                    
+                    if os.path.exists(new_path) and os.path.isdir(new_path):
+                        os.chdir(new_path)
+                        self.current_dir = os.getcwd()
+                        self.update_prompt()
+                    else:
+                        print(f"cd: {target_dir}: No such file or directory")
+                except PermissionError:
+                    print(f"cd: {target_dir}: Permission denied")
+                except Exception as e:
+                    print(f"cd: {target_dir}: {e}")
             else:
                 print("cd: too many arguments")
                 print("Usage: cd [directory]")
@@ -485,6 +531,29 @@ class Shell:
         else:
             # Обычный режим
             print(self.current_dir)
+
+    def date_command(self, args):
+        """Команда date - выводит текущую дату и время"""
+        now = datetime.now()
+        
+        # Проверяем аргументы для форматирования
+        if args and args[0] == "+%Y-%m-%d":
+            print(now.strftime("%Y-%m-%d"))
+        elif args and args[0] == "+%H:%M:%S":
+            print(now.strftime("%H:%M:%S"))
+        elif args and len(args) >= 2 and args[0] == "+%Y-%m-%d" and args[1] == "%H:%M:%S":
+            print(now.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            # Стандартный формат
+            print(now.strftime("%a %b %d %H:%M:%S %Z %Y"))
+
+    def whoami_command(self, args):
+        """Команда whoami - выводит имя текущего пользователя"""
+        if args:
+            print("whoami: too many arguments")
+            print("Usage: whoami")
+        else:
+            print(self.username)
 
     def conf_dump_command(self, args):
         """Команда conf-dump - выводит конфигурацию эмулятора"""
