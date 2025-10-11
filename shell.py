@@ -214,6 +214,7 @@ class Shell:
             'whoami': self.whoami_command,
             'mkdir': self.mkdir_command,
             'cp': self.cp_command,
+            'touch': self.touch_command,
             'conf-dump': self.conf_dump_command,
             'exit': self.exit_command
         }
@@ -239,9 +240,9 @@ class Shell:
         """Основной цикл REPL"""
         print("Добро пожаловать в эмулятор командной строки!")
         if self.vfs_path:
-            print("Доступные команды: ls, cd, echo, cat, pwd, date, whoami, mkdir, cp, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, cat, pwd, date, whoami, mkdir, cp, touch, conf-dump, exit")
         else:
-            print("Доступные команды: ls, cd, echo, date, whoami, mkdir, cp, conf-dump, exit")
+            print("Доступные команды: ls, cd, echo, date, whoami, mkdir, cp, touch, conf-dump, exit")
         print("Поддерживаются переменные окружения: $VAR, ${VAR}")
         print("Для выхода используйте команду 'exit' или Ctrl+C")
         print("-" * 50)
@@ -637,6 +638,38 @@ class Shell:
         else:
             # Обычный режим - заглушка
             print(f"cp: would copy '{src_path}' to '{dst_path}'")
+
+    def touch_command(self, args):
+        """Команда touch - создание файлов"""
+        if len(args) < 1:
+            print("touch: missing file operand")
+            print("Usage: touch file...")
+            return
+        
+        if self.vfs_path:
+            # Режим VFS
+            success_count = 0
+            for filename in args:
+                # Нормализуем путь
+                if not filename.startswith("/"):
+                    if self.vfs_current_path == "/":
+                        full_path = "/" + filename
+                    else:
+                        full_path = self.vfs_current_path + "/" + filename
+                else:
+                    full_path = filename
+                
+                if self.vfs.create_file(full_path, ""):
+                    print(f"touch: created file '{filename}'")
+                    success_count += 1
+                else:
+                    print(f"touch: cannot create '{filename}': File already exists or parent directory does not exist")
+            
+            if success_count > 0:
+                print(f"touch: created {success_count} file(s)")
+        else:
+            # Обычный режим - заглушка
+            print(f"touch: would create file(s): {', '.join(args)}")
 
     def exit_command(self, args):
         """Команда exit - завершение работы эмулятора"""
